@@ -1,0 +1,159 @@
+#include <reg51.h>
+#define false 0
+#define true 1
+#define uchar unsigned char	
+#define uint unsigned int	 		
+#define ulong unsigned long	
+
+sbit start_key = P3^0;	
+sbit pause_key = P3^1;	
+sbit reset_key = P3^2;	
+sbit beep_key = P3^3;	
+sbit start_led = P3^4;		
+sbit pause_led = P3^5;		
+sbit beep_led = P3^6;		
+sbit beep = P3^7;				
+
+uchar disCode[10] = {0x03,0x9f,0x25,0x0d,0x99,0x49,0x41,0x1f,0x01,0x09};
+uchar locCode[8] = {0x01,0x02,0x04,0x08,0x10,0x20,0x40,0x80};					
+void displayTime(void);	 
+void disPlay(uchar num, uchar loc);	 
+void Delay1ms(unsigned int n);	
+
+uchar state;	
+ulong ms = 0;	
+uchar fen = 0;	
+uchar miao;	
+uchar ms2;	
+
+bit isBeep = false;	
+
+
+void T0_INT(void)  interrupt 1
+{ 
+	TL0= (65536-9000)/256;	
+	TH0= (65536-9000)%256;
+	ms ++;
+}
+
+
+void main(void)
+{
+	TMOD=0x61; //0110 0001	
+	
+	TL0= (65536-10000)/256;		
+	TH0= (65536-10000)%256;
+	TR0=1;		
+	EA=1;	
+	start_led = 0;		
+	pause_led = 0;		
+	beep_led = 0;		
+	while(1)
+	{
+		displayTime();	 
+			
+		
+		if(start_key == 0)	 
+		{
+			Delay1ms(10);	
+			if(start_key == 0)
+			{
+				if(state == 0)
+				{
+					state = 1;	
+					ms = 0;		
+					fen = 0;	
+					ET0 = 1;		
+					start_led = 1;	
+				}else{
+					state = 0;		
+					ET0 = 0;		
+					start_led = 0;	
+					pause_led = 0;	
+				}
+			   	while(start_key == 0) displayTime();	
+			}
+		}
+		
+		
+		if(state != 0 && pause_key == 0)	
+		{
+			Delay1ms(10);	
+			if(pause_key == 0)
+			{
+				if(state == 2)	
+				{
+					state = 1;		
+					pause_led = 0;	
+					ET0 = 1;		
+				}else{
+					state = 2;
+					pause_led = 1;	
+					ET0 = 0;		
+				}
+			   	while(pause_key == 0) displayTime();	
+			}
+		}
+		if(state == 0 && reset_key == 0)	
+		{
+			Delay1ms(10);
+			if(reset_key == 0)
+			{
+				ms = 0;		
+				fen = 0;	
+			   	while(reset_key == 0) displayTime();	
+			}
+		}
+		
+		if(beep_key == 0)	
+		{
+			Delay1ms(10);	
+			if(beep_key == 0)
+			{
+				isBeep = ~isBeep;	
+				beep_led = isBeep;	
+			   	while(beep_key == 0) displayTime();	
+			}
+		}
+	}
+}
+
+void displayTime(void)	 
+{
+	miao = ms/100 - fen*60;	
+	ms2 = ms/10%10;	
+	if(state == 1 && isBeep == true && ms2 < 1) 
+	{
+		beep = 0;		
+	}else{
+		beep = 1;		
+	}
+	
+	if(miao >= 60)	
+	{
+		miao = 0;
+		fen++;		
+	}
+	disPlay(fen/10, 0);	 	
+	disPlay(fen%10, 1);	 
+	disPlay(miao/10, 2);	 
+	disPlay(miao%10, 3);	 
+	disPlay(ms2, 4);	 		
+	disPlay(ms%10, 5);	 
+}
+void disPlay(uchar num, uchar loc)	 
+{
+	P0 = 0xff;	
+	P2 = locCode[loc];	
+	P0 = disCode[num];	
+	Delay1ms(1);	
+}
+
+
+void Delay1ms(unsigned int n)
+{
+	unsigned char i, j;	
+	for (; n>0; n--)
+		for(i=0;i<10;i++)
+			for(j=0;j<33;j++);	
+}
